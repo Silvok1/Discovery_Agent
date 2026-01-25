@@ -1,13 +1,15 @@
+"""Base agent class for interview agents."""
 from typing import Optional
-from langchain.memory import ConversationBufferMemory
 from .prompts import EXPLORER_PROMPT, INQUISITOR_PROMPT, VALIDATOR_PROMPT
 
 
 class BaseAgent:
+    """Base class for interview agents."""
+
     def __init__(self, agent_type: str, context: dict):
         self.agent_type = agent_type
         self.context = context
-        self.memory = ConversationBufferMemory()
+        self.conversation_history = []
         self.system_prompt = self._get_system_prompt()
         self.turn_count = 0
         self.max_turns = context.get("max_turns", 20)
@@ -34,8 +36,7 @@ class BaseAgent:
         return True
 
     def _generate_response(self, user_message: str) -> str:
-        # Placeholder - implement with LiteLLM/LangChain
         raise NotImplementedError("Implement with LLM provider")
 
     def get_conversation_history(self) -> list:
-        return self.memory.chat_memory.messages
+        return self.conversation_history

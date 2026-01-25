@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-gray-50 text-gray-900;
+}
+
+.chat-bubble-user {
+  @apply bg-blue-500 text-white rounded-2xl rounded-br-sm px-4 py-2 max-w-[80%] ml-auto;
+}
+
+.chat-bubble-assistant {
+  @apply bg-white text-gray-800 rounded-2xl rounded-bl-sm px-4 py-2 max-w-[80%] shadow-sm border border-gray-100;
+}
+
+.recording-pulse {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
+}
