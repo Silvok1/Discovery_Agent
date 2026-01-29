@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
+import { PlanningChat } from './PlanningChat';
+import { usePlanningChat } from '../hooks/usePlanningChat';
 
 const API_BASE = '/api';
 
 export function SetupPage({ onStartInterview }) {
-  const [step, setStep] = useState('create'); // create, invite, ready
+  // Setup mode: 'choice', 'quick', 'planning', 'invite', 'ready'
+  const [mode, setMode] = useState('choice');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -19,6 +22,21 @@ export function SetupPage({ onStartInterview }) {
   const [instanceId, setInstanceId] = useState(null);
   const [interviewToken, setInterviewToken] = useState(null);
 
+  // Planning chat hook
+  const {
+    messages,
+    isLoading: planningLoading,
+    error: planningError,
+    planReady,
+    draftPlan,
+    startPlanningSession,
+    sendMessage,
+    finalizePlan,
+    reset: resetPlanning,
+    setDraftPlan,
+  } = usePlanningChat();
+
+  // Handle quick setup flow (original)
   const handleCreateInstance = async (e) => {
     e.preventDefault();
     setIsLoading(true);
@@ -53,11 +71,42 @@ export function SetupPage({ onStartInterview }) {
         method: 'POST',
       });
 
-      setStep('invite');
+      setMode('invite');
     } catch (err) {
       setError(err.message);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Handle starting planning mode
+  const handleStartPlanning = async (e) => {
+    e.preventDefault();
+    setError(null);
+
+    try {
+      await startPlanningSession(userEmail);
+      setMode('planning');
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  // Handle finalizing the plan and creating instance
+  const handleFinalizePlan = async (name, editedPlan) => {
+    try {
+      const result = await finalizePlan(name, editedPlan || {});
+      setInstanceId(result.instance_id);
+      setInstanceName(name);
+
+      // Activate instance
+      await fetch(`${API_BASE}/instances/${result.instance_id}/activate`, {
+        method: 'POST',
+      });
+
+      setMode('invite');
+    } catch (err) {
+      setError(err.message);
     }
   };
 
@@ -81,7 +130,7 @@ export function SetupPage({ onStartInterview }) {
 
       const participant = await res.json();
       setInterviewToken(participant.unique_token);
-      setStep('ready');
+      setMode('ready');
     } catch (err) {
       setError(err.message);
     } finally {
@@ -89,40 +138,110 @@ export function SetupPage({ onStartInterview }) {
     }
   };
 
+  const handleReset = () => {
+    setMode('choice');
+    setInstanceId(null);
+    setInterviewToken(null);
+    setInstanceName('');
+    setObjective('');
+    setParticipantEmail('');
+    setParticipantName('');
+    setParticipantBackground('');
+    resetPlanning();
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4">
-      <div className="max-w-2xl mx-auto">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">
-            Process Discovery Platform
-          </h1>
-          <p className="text-gray-600">
-            Conduct structured interviews to understand workflows and identify automation opportunities
-          </p>
-        </div>
+      <div className="max-w-4xl mx-auto">
+        {/* Header - only show on non-planning modes */}
+        {mode !== 'planning' && (
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-gray-800 mb-2">
+              Process Discovery Platform
+            </h1>
+            <p className="text-gray-600">
+              Conduct structured interviews to understand workflows and identify automation opportunities
+            </p>
+          </div>
+        )}
 
         {error && (
-          <div className="bg-red-100 text-red-700 px-4 py-3 rounded-lg mb-6">
+          <div className="bg-red-100 text-red-700 px-4 py-3 rounded-lg mb-6 max-w-2xl mx-auto">
             {error}
           </div>
         )}
 
-        {step === 'create' && (
-          <form onSubmit={handleCreateInstance} className="bg-white rounded-xl shadow-lg p-8">
-            <h2 className="text-xl font-semibold mb-6">Start Discovery Interview</h2>
+        {/* Choice Screen */}
+        {mode === 'choice' && (
+          <div className="max-w-2xl mx-auto">
+            <form onSubmit={(e) => e.preventDefault()} className="bg-white rounded-xl shadow-lg p-8 mb-6">
+              <h2 className="text-xl font-semibold mb-6">Get Started</h2>
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Your Email
+                </label>
+                <input
+                  type="email"
+                  value={userEmail}
+                  onChange={(e) => setUserEmail(e.target.value)}
+                  required
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="pm@company.com"
+                />
+              </div>
+            </form>
 
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Your Email
-              </label>
-              <input
-                type="email"
-                value={userEmail}
-                onChange={(e) => setUserEmail(e.target.value)}
-                required
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="pm@company.com"
-              />
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Quick Setup Card */}
+              <button
+                onClick={() => userEmail ? setMode('quick') : setError('Please enter your email first')}
+                className="bg-white rounded-xl shadow-lg p-6 text-left hover:shadow-xl transition-shadow border-2 border-transparent hover:border-blue-200"
+              >
+                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
+                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold text-gray-800 mb-2">Quick Setup</h3>
+                <p className="text-gray-600 text-sm">
+                  I know what process I want to explore. Let me set up the interview directly.
+                </p>
+              </button>
+
+              {/* Plan with Claude Card */}
+              <button
+                onClick={handleStartPlanning}
+                disabled={!userEmail || planningLoading}
+                className="bg-white rounded-xl shadow-lg p-6 text-left hover:shadow-xl transition-shadow border-2 border-transparent hover:border-purple-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
+                  <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold text-gray-800 mb-2">Plan with Claude</h3>
+                <p className="text-gray-600 text-sm">
+                  Help me think through what to explore. I'll chat with Claude to design my interview plan.
+                </p>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Quick Setup Form */}
+        {mode === 'quick' && (
+          <form onSubmit={handleCreateInstance} className="bg-white rounded-xl shadow-lg p-8 max-w-2xl mx-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold">Quick Setup</h2>
+              <button
+                type="button"
+                onClick={() => setMode('choice')}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
 
             <div className="mb-4">
@@ -165,8 +284,26 @@ export function SetupPage({ onStartInterview }) {
           </form>
         )}
 
-        {step === 'invite' && (
-          <form onSubmit={handleAddParticipant} className="bg-white rounded-xl shadow-lg p-8">
+        {/* Planning Chat Mode */}
+        {mode === 'planning' && (
+          <div className="bg-white rounded-xl shadow-lg overflow-hidden max-w-4xl mx-auto" style={{ height: '80vh' }}>
+            <PlanningChat
+              messages={messages}
+              isLoading={planningLoading}
+              error={planningError}
+              planReady={planReady}
+              draftPlan={draftPlan}
+              onSendMessage={sendMessage}
+              onFinalize={handleFinalizePlan}
+              onBack={() => setMode('choice')}
+              onEditPlan={setDraftPlan}
+            />
+          </div>
+        )}
+
+        {/* Invite Participant Step */}
+        {mode === 'invite' && (
+          <form onSubmit={handleAddParticipant} className="bg-white rounded-xl shadow-lg p-8 max-w-2xl mx-auto">
             <h2 className="text-xl font-semibold mb-6">Add Participant</h2>
 
             <div className="mb-4">
@@ -222,8 +359,9 @@ export function SetupPage({ onStartInterview }) {
           </form>
         )}
 
-        {step === 'ready' && (
-          <div className="bg-white rounded-xl shadow-lg p-8 text-center">
+        {/* Ready Step */}
+        {mode === 'ready' && (
+          <div className="bg-white rounded-xl shadow-lg p-8 text-center max-w-2xl mx-auto">
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -249,11 +387,7 @@ export function SetupPage({ onStartInterview }) {
             </button>
 
             <button
-              onClick={() => {
-                setStep('create');
-                setInstanceId(null);
-                setInterviewToken(null);
-              }}
+              onClick={handleReset}
               className="w-full py-3 mt-3 text-gray-600 hover:text-gray-800 transition-colors"
             >
               Create Another Interview

@@ -413,3 +413,203 @@ async def get_instance_participants(instance_id: int) -> list:
     rows = await cursor.fetchall()
     await db.close()
     return [dict(row) for row in rows]
+
+
+# =============================================================================
+# Planning Session Operations (Collaborative Planning with Claude)
+# =============================================================================
+
+async def create_planning_session(user_id: int) -> dict:
+    """Create a new planning session for a user."""
+    db = await get_db()
+    cursor = await db.execute(
+        "INSERT INTO planning_sessions (user_id, status) VALUES (?, 'active')",
+        (user_id,)
+    )
+    await db.commit()
+    session_id = cursor.lastrowid
+    cursor = await db.execute("SELECT * FROM planning_sessions WHERE id = ?", (session_id,))
+    row = await cursor.fetchone()
+    await db.close()
+    data = dict(row)
+    # Parse JSON fields
+    if data.get("generated_questions"):
+        data["generated_questions"] = json.loads(data["generated_questions"])
+    if data.get("key_assumptions"):
+        data["key_assumptions"] = json.loads(data["key_assumptions"])
+    return data
+
+
+async def get_planning_session(session_id: int) -> Optional[dict]:
+    """Get a planning session by ID."""
+    db = await get_db()
+    cursor = await db.execute("SELECT * FROM planning_sessions WHERE id = ?", (session_id,))
+    row = await cursor.fetchone()
+    await db.close()
+    if row:
+        data = dict(row)
+        if data.get("generated_questions"):
+            data["generated_questions"] = json.loads(data["generated_questions"])
+        if data.get("key_assumptions"):
+            data["key_assumptions"] = json.loads(data["key_assumptions"])
+        return data
+    return None
+
+
+async def get_user_planning_sessions(user_id: int) -> list:
+    """Get all planning sessions for a user."""
+    db = await get_db()
+    cursor = await db.execute(
+        "SELECT * FROM planning_sessions WHERE user_id = ? ORDER BY started_at DESC",
+        (user_id,)
+    )
+    rows = await cursor.fetchall()
+    await db.close()
+    result = []
+    for row in rows:
+        data = dict(row)
+        if data.get("generated_questions"):
+            data["generated_questions"] = json.loads(data["generated_questions"])
+        if data.get("key_assumptions"):
+            data["key_assumptions"] = json.loads(data["key_assumptions"])
+        result.append(data)
+    return result
+
+
+async def update_planning_session(session_id: int, **kwargs) -> Optional[dict]:
+    """Update a planning session."""
+    db = await get_db()
+    set_parts = []
+    values = []
+    for key, value in kwargs.items():
+        if value is not None:
+            if key in ("generated_questions", "key_assumptions"):
+                value = json.dumps(value)
+            set_parts.append(f"{key} = ?")
+            values.append(value)
+
+    if set_parts:
+        values.append(session_id)
+        query = f"UPDATE planning_sessions SET {', '.join(set_parts)} WHERE id = ?"
+        await db.execute(query, values)
+        await db.commit()
+
+    cursor = await db.execute("SELECT * FROM planning_sessions WHERE id = ?", (session_id,))
+    row = await cursor.fetchone()
+    await db.close()
+    if row:
+        data = dict(row)
+        if data.get("generated_questions"):
+            data["generated_questions"] = json.loads(data["generated_questions"])
+        if data.get("key_assumptions"):
+            data["key_assumptions"] = json.loads(data["key_assumptions"])
+        return data
+    return None
+
+
+async def increment_planning_turn_count(session_id: int) -> int:
+    """Increment the turn count for a planning session."""
+    db = await get_db()
+    await db.execute(
+        "UPDATE planning_sessions SET turn_count = turn_count + 1 WHERE id = ?",
+        (session_id,)
+    )
+    await db.commit()
+    cursor = await db.execute("SELECT turn_count FROM planning_sessions WHERE id = ?", (session_id,))
+    row = await cursor.fetchone()
+    await db.close()
+    return row["turn_count"]
+
+
+async def complete_planning_session(session_id: int, plan: dict) -> Optional[dict]:
+    """Mark a planning session as completed with the final plan."""
+    db = await get_db()
+    await db.execute(
+        """UPDATE planning_sessions SET
+           status = 'completed',
+           completed_at = CURRENT_TIMESTAMP,
+           generated_objective = ?,
+           generated_questions = ?,
+           target_participant_profile = ?,
+           key_assumptions = ?
+           WHERE id = ?""",
+        (
+            plan.get("objective"),
+            json.dumps(plan.get("questions", [])),
+            plan.get("participant_profile"),
+            json.dumps(plan.get("assumptions", [])),
+            session_id
+        )
+    )
+    await db.commit()
+    cursor = await db.execute("SELECT * FROM planning_sessions WHERE id = ?", (session_id,))
+    row = await cursor.fetchone()
+    await db.close()
+    if row:
+        data = dict(row)
+        if data.get("generated_questions"):
+            data["generated_questions"] = json.loads(data["generated_questions"])
+        if data.get("key_assumptions"):
+            data["key_assumptions"] = json.loads(data["key_assumptions"])
+        return data
+    return None
+
+
+# Planning Message Operations
+
+async def add_planning_message(planning_session_id: int, role: str, content: str) -> dict:
+    """Add a message to a planning session."""
+    db = await get_db()
+    cursor = await db.execute(
+        "INSERT INTO planning_messages (planning_session_id, role, content) VALUES (?, ?, ?)",
+        (planning_session_id, role, content)
+    )
+    await db.commit()
+    message_id = cursor.lastrowid
+    await db.close()
+    return {"id": message_id, "planning_session_id": planning_session_id, "role": role, "content": content}
+
+
+async def get_planning_messages(planning_session_id: int) -> list:
+    """Get all messages for a planning session."""
+    db = await get_db()
+    cursor = await db.execute(
+        "SELECT * FROM planning_messages WHERE planning_session_id = ? ORDER BY timestamp",
+        (planning_session_id,)
+    )
+    rows = await cursor.fetchall()
+    await db.close()
+    return [dict(row) for row in rows]
+
+
+# Extended Instance Creation (with planning session reference)
+
+async def create_instance_from_planning(
+    user_id: int,
+    planning_session_id: int,
+    name: str,
+    objective: str,
+    questions: list,
+    project_id: Optional[int] = None,
+    timebox_minutes: int = 10,
+    max_turns: int = 20
+) -> dict:
+    """Create an instance from a completed planning session."""
+    db = await get_db()
+    cursor = await db.execute(
+        """INSERT INTO instances
+           (project_id, user_id, planning_session_id, name, agent_type, objective, questions,
+            timebox_minutes, max_turns, status, created_via)
+           VALUES (?, ?, ?, ?, 'explorer', ?, ?, ?, ?, 'draft', 'collaborative_planning')""",
+        (project_id, user_id, planning_session_id, name, objective,
+         json.dumps(questions), timebox_minutes, max_turns)
+    )
+    await db.commit()
+    instance_id = cursor.lastrowid
+    cursor = await db.execute("SELECT * FROM instances WHERE id = ?", (instance_id,))
+    row = await cursor.fetchone()
+    await db.close()
+    data = dict(row)
+    if data.get("questions"):
+        data["questions"] = json.loads(data["questions"])
+    return data

@@ -25,11 +25,42 @@ CREATE TABLE IF NOT EXISTS projects (
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
+-- Planning Sessions (collaborative planning with Claude)
+CREATE TABLE IF NOT EXISTS planning_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    status TEXT CHECK(status IN ('active', 'completed', 'abandoned')) DEFAULT 'active',
+
+    -- Generated plan (populated during/after conversation)
+    generated_objective TEXT,
+    generated_questions JSON,
+    target_participant_profile TEXT,
+    key_assumptions JSON,
+
+    -- Metadata
+    turn_count INTEGER DEFAULT 0,
+    started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP,
+
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+-- Planning Messages (conversation history for planning sessions)
+CREATE TABLE IF NOT EXISTS planning_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    planning_session_id INTEGER NOT NULL,
+    role TEXT CHECK(role IN ('user', 'assistant', 'system')),
+    content TEXT NOT NULL,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (planning_session_id) REFERENCES planning_sessions(id)
+);
+
 -- Interview Instances (belong to a project)
 CREATE TABLE IF NOT EXISTS instances (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     project_id INTEGER,
     user_id INTEGER,
+    planning_session_id INTEGER,
     name TEXT NOT NULL,
     agent_type TEXT CHECK(agent_type IN ('explorer')) DEFAULT 'explorer',
     objective TEXT,
@@ -37,9 +68,11 @@ CREATE TABLE IF NOT EXISTS instances (
     timebox_minutes INTEGER DEFAULT 30,
     max_turns INTEGER DEFAULT 20,
     status TEXT CHECK(status IN ('draft', 'active', 'closed')),
+    created_via TEXT CHECK(created_via IN ('quick_setup', 'collaborative_planning')) DEFAULT 'quick_setup',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (project_id) REFERENCES projects(id),
-    FOREIGN KEY (user_id) REFERENCES users(id)
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (planning_session_id) REFERENCES planning_sessions(id)
 );
 
 -- Anonymous link settings per instance

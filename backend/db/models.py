@@ -156,3 +156,63 @@ class Insight(BaseModel):
     content: str
     confidence: float
     extracted_at: datetime
+
+
+# =============================================================================
+# Planning Session Models (Collaborative Planning with Claude)
+# =============================================================================
+
+class PlanningSessionCreate(BaseModel):
+    user_email: EmailStr
+
+
+class DraftPlan(BaseModel):
+    """The structured plan extracted from the planning conversation."""
+    objective: str
+    questions: list[str]
+    participant_profile: str
+    assumptions: list[str]
+
+
+class PlanningSession(BaseModel):
+    id: int
+    user_id: int
+    status: str
+    generated_objective: Optional[str]
+    generated_questions: Optional[list[str]]
+    target_participant_profile: Optional[str]
+    key_assumptions: Optional[list[str]]
+    turn_count: int
+    started_at: datetime
+    completed_at: Optional[datetime]
+
+
+class PlanningMessage(BaseModel):
+    id: int
+    planning_session_id: int
+    role: str
+    content: str
+    timestamp: datetime
+
+
+class PlanningChatRequest(BaseModel):
+    message: str
+
+
+class PlanningChatResponse(BaseModel):
+    response: str
+    turn_count: int
+    plan_ready: bool
+    draft_plan: Optional[DraftPlan] = None
+
+
+class PlanningFinalizeRequest(BaseModel):
+    name: str  # Instance name
+    objective: Optional[str] = None  # Override if PM edited
+    questions: Optional[list[str]] = None  # Override if PM edited
+    participant_profile: Optional[str] = None  # For reference
+
+
+class PlanningSessionWithMessages(BaseModel):
+    planning_session: PlanningSession
+    messages: list[PlanningMessage]

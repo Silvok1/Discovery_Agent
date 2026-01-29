@@ -4,14 +4,18 @@ from typing import Optional
 from ..db import database as db
 from ..db.models import (
     UserCreate, InstanceCreate, InstanceUpdate, ParticipantCreate,
-    ChatRequest, ChatResponse, ProjectCreate, ProjectUpdate, AnonymousLinkUpdate
+    ChatRequest, ChatResponse, ProjectCreate, ProjectUpdate, AnonymousLinkUpdate,
+    PlanningSessionCreate, PlanningChatRequest, PlanningChatResponse,
+    PlanningFinalizeRequest, DraftPlan
 )
 from ..agents.llm_agent import LLMAgent
+from ..agents.planning_agent import PlanningAgent
 
 router = APIRouter()
 
 # In-memory session storage for active agents
 active_sessions: dict[int, LLMAgent] = {}
+active_planning_sessions: dict[int, PlanningAgent] = {}
 
 
 # Project endpoints
@@ -344,3 +348,191 @@ async def get_insights(session_id: int):
     """Get extracted insights for a session."""
     insights = await db.get_session_insights(session_id)
     return insights
+
+
+# =============================================================================
+# Planning Session Endpoints (Collaborative Planning with Claude)
+# =============================================================================
+
+@router.post("/planning/start")
+async def start_planning_session(request: PlanningSessionCreate):
+    """Start a new collaborative planning session."""
+    # Get or create user
+    user = await db.get_or_create_user(request.user_email)
+
+    # Create planning session
+    session = await db.create_planning_session(user["id"])
+
+    # Create planning agent
+    agent = PlanningAgent()
+    active_planning_sessions[session["id"]] = agent
+
+    # Get opening message
+    opening = agent.get_opening_message()
+    await db.add_planning_message(session["id"], "assistant", opening)
+
+    return {
+        "planning_session_id": session["id"],
+        "opening_message": opening
+    }
+
+
+@router.post("/planning/{planning_session_id}/chat")
+async def planning_chat(planning_session_id: int, request: PlanningChatRequest) -> PlanningChatResponse:
+    """Send a message in a planning session."""
+    session = await db.get_planning_session(planning_session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Planning session not found")
+
+    if session["status"] != "active":
+        raise HTTPException(status_code=400, detail="Planning session is not active")
+
+    agent = active_planning_sessions.get(planning_session_id)
+    if not agent:
+        raise HTTPException(status_code=400, detail="Planning session expired. Please start a new session.")
+
+    # Store user message
+    await db.add_planning_message(planning_session_id, "user", request.message)
+
+    # Get agent response (returns tuple: response, plan_ready, draft_plan)
+    response, plan_ready, draft_plan = await agent.chat(request.message)
+
+    # Store agent response
+    await db.add_planning_message(planning_session_id, "assistant", response)
+
+    # Update turn count
+    turn_count = await db.increment_planning_turn_count(planning_session_id)
+
+    # If plan is ready, store it in the session
+    if plan_ready and draft_plan:
+        await db.update_planning_session(
+            planning_session_id,
+            generated_objective=draft_plan.get("objective"),
+            generated_questions=draft_plan.get("questions"),
+            target_participant_profile=draft_plan.get("participant_profile"),
+            key_assumptions=draft_plan.get("assumptions")
+        )
+
+    return PlanningChatResponse(
+        response=response,
+        turn_count=turn_count,
+        plan_ready=plan_ready,
+        draft_plan=DraftPlan(**draft_plan) if draft_plan else None
+    )
+
+
+@router.post("/planning/{planning_session_id}/finalize")
+async def finalize_planning_session(planning_session_id: int, request: PlanningFinalizeRequest):
+    """Finalize a planning session and create an interview instance."""
+    session = await db.get_planning_session(planning_session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Planning session not found")
+
+    # Use provided values or fall back to generated ones
+    objective = request.objective or session.get("generated_objective", "")
+    questions = request.questions or session.get("generated_questions", [])
+
+    if not objective:
+        raise HTTPException(status_code=400, detail="No objective available. Please complete the planning conversation first.")
+
+    # Mark planning session as completed
+    plan = {
+        "objective": objective,
+        "questions": questions,
+        "participant_profile": request.participant_profile or session.get("target_participant_profile"),
+        "assumptions": session.get("key_assumptions", [])
+    }
+    await db.complete_planning_session(planning_session_id, plan)
+
+    # Create the instance
+    instance = await db.create_instance_from_planning(
+        user_id=session["user_id"],
+        planning_session_id=planning_session_id,
+        name=request.name,
+        objective=objective,
+        questions=questions
+    )
+
+    # Clean up agent from memory
+    if planning_session_id in active_planning_sessions:
+        del active_planning_sessions[planning_session_id]
+
+    return {
+        "instance_id": instance["id"],
+        "instance": instance
+    }
+
+
+@router.get("/planning/{planning_session_id}")
+async def get_planning_session(planning_session_id: int):
+    """Get a planning session with its messages."""
+    session = await db.get_planning_session(planning_session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Planning session not found")
+
+    messages = await db.get_planning_messages(planning_session_id)
+
+    return {
+        "planning_session": session,
+        "messages": messages
+    }
+
+
+@router.get("/planning")
+async def get_user_planning_sessions(user_email: str):
+    """Get all planning sessions for a user."""
+    user = await db.get_user_by_email(user_email)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    sessions = await db.get_user_planning_sessions(user["id"])
+    return sessions
+
+
+@router.post("/planning/{planning_session_id}/resume")
+async def resume_planning_session(planning_session_id: int):
+    """Resume an active planning session."""
+    session = await db.get_planning_session(planning_session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Planning session not found")
+
+    if session["status"] != "active":
+        raise HTTPException(status_code=400, detail="Planning session is not active")
+
+    # Check if agent already exists in memory
+    if planning_session_id in active_planning_sessions:
+        agent = active_planning_sessions[planning_session_id]
+    else:
+        # Recreate agent and rebuild conversation history
+        agent = PlanningAgent()
+        messages = await db.get_planning_messages(planning_session_id)
+
+        for msg in messages:
+            if msg["role"] == "user":
+                agent.conversation_history.append({
+                    "role": "user",
+                    "content": msg["content"]
+                })
+            elif msg["role"] == "assistant":
+                agent.conversation_history.append({
+                    "role": "assistant",
+                    "content": msg["content"]
+                })
+                # Check if this message contains a plan
+                draft_plan = agent._parse_plan_from_response(msg["content"])
+                if draft_plan:
+                    agent.plan_presented = True
+                    agent.draft_plan = draft_plan
+
+        agent.turn_count = session["turn_count"]
+        active_planning_sessions[planning_session_id] = agent
+
+    # Get the messages to return
+    messages = await db.get_planning_messages(planning_session_id)
+
+    return {
+        "planning_session": session,
+        "messages": messages,
+        "plan_ready": agent.plan_presented,
+        "draft_plan": agent.draft_plan
+    }
