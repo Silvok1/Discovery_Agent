@@ -156,3 +156,9 @@ class Insight(BaseModel):
     content: str
     confidence: float
     extracted_at: datetime
+
+
+# Feedback models
+class FeedbackRequest(BaseModel):
+    rating: int  # 1-5 star rating
+    feedback: Optional[str] = None  # Text feedback (shown for 1-2 stars)

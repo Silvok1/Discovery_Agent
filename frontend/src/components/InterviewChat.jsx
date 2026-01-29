@@ -1,17 +1,20 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
 import { VoiceButton } from './VoiceButton';
+import { FeedbackForm } from './FeedbackForm';
 import { useChat } from '../hooks/useChat';
 import { useVoice } from '../hooks/useVoice';
 
 export function InterviewChat({ token, onEnd }) {
   const messagesEndRef = useRef(null);
+  const [showFeedback, setShowFeedback] = useState(false);
   const {
     messages,
     isLoading,
     turnCount,
     error,
+    sessionId,
     startSession,
     sendMessage,
     endSession,
@@ -73,8 +76,44 @@ export function InterviewChat({ token, onEnd }) {
 
   const handleEndInterview = async () => {
     await endSession();
+    setShowFeedback(true);
+  };
+
+  const handleFeedbackSubmit = async ({ rating, feedback }) => {
+    try {
+      // Submit feedback to the backend
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      await fetch(`${apiUrl}/api/sessions/${sessionId}/feedback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rating, feedback }),
+      });
+    } catch (err) {
+      console.error('Failed to submit feedback:', err);
+    }
     onEnd?.();
   };
+
+  const handleFeedbackSkip = () => {
+    onEnd?.();
+  };
+
+  // Show feedback form after interview ends
+  if (showFeedback) {
+    return (
+      <div className="flex flex-col h-screen bg-gray-50">
+        <header className="bg-white shadow-sm px-6 py-4">
+          <h1 className="text-xl font-semibold text-gray-800 text-center">Interview Complete</h1>
+        </header>
+        <div className="flex-1 flex items-center justify-center">
+          <FeedbackForm
+            onSubmit={handleFeedbackSubmit}
+            onSkip={handleFeedbackSkip}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">

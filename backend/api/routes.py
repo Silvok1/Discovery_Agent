@@ -4,7 +4,8 @@ from typing import Optional
 from ..db import database as db
 from ..db.models import (
     UserCreate, InstanceCreate, InstanceUpdate, ParticipantCreate,
-    ChatRequest, ChatResponse, ProjectCreate, ProjectUpdate, AnonymousLinkUpdate
+    ChatRequest, ChatResponse, ProjectCreate, ProjectUpdate, AnonymousLinkUpdate,
+    FeedbackRequest
 )
 from ..agents.llm_agent import LLMAgent
 
@@ -344,3 +345,22 @@ async def get_insights(session_id: int):
     """Get extracted insights for a session."""
     insights = await db.get_session_insights(session_id)
     return insights
+
+
+@router.post("/sessions/{session_id}/feedback")
+async def submit_feedback(session_id: int, feedback: FeedbackRequest):
+    """Submit feedback for a completed session."""
+    session = await db.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    # Validate rating is between 1 and 5
+    if feedback.rating < 1 or feedback.rating > 5:
+        raise HTTPException(status_code=400, detail="Rating must be between 1 and 5")
+
+    result = await db.save_session_feedback(
+        session_id=session_id,
+        rating=feedback.rating,
+        feedback_text=feedback.feedback
+    )
+    return {"status": "success", "data": result}

@@ -413,3 +413,18 @@ async def get_instance_participants(instance_id: int) -> list:
     rows = await cursor.fetchall()
     await db.close()
     return [dict(row) for row in rows]
+
+
+# Feedback operations
+async def save_session_feedback(session_id: int, rating: int, feedback_text: Optional[str] = None):
+    """Save feedback for a session. Stores as a special insight type."""
+    db = await get_db()
+    # Store feedback as a special insight for now
+    content = json.dumps({"rating": rating, "feedback_text": feedback_text})
+    await db.execute(
+        "INSERT INTO insights (session_id, insight_type, content, confidence) VALUES (?, ?, ?, ?)",
+        (session_id, "session_feedback", content, 1.0)
+    )
+    await db.commit()
+    await db.close()
+    return {"session_id": session_id, "rating": rating, "feedback_text": feedback_text}
