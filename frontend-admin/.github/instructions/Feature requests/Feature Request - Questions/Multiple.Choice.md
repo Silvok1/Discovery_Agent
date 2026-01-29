@@ -1,0 +1,19 @@
+# Multiple Choice Question
+
+1. **Structure**
+    - **Visual Elements:** A prompt and a set of answer choices. Choices can be rendered as radio buttons (single-select) or checkboxes (multi-select), or as a dropdown menu/select box.
+    - **Variations:** 
+        - *Single Answer:* Respondent can select only one option. (Displayed with radio buttons or as a single-select dropdown list.)
+        - *Multiple Answer:* Respondent can select multiple options. (Displayed with checkboxes or an alternative multi-select box interface.)
+        - *Layout Formats:* For single or multi answer, choices can be shown in a vertical list (default), in multiple columns, or horizontally. A dropdown format is available for single answer, and a scrolling select box format is available for multi-answer to allow selecting multiple items using Ctrl/Cmd or Shift keys.
+2. **Settings & Features**
+    - **Validation:** Options to require an answer (Force Response) or request an answer (Request Response) are available. For multiple-answer questions, you can set a minimum and/or maximum number of choices that must be selected. (For example, “Select at least 2 options” or “Select up to 5 options.”) You can also apply Custom Validation to enforce specific combinations or content (e.g., if an “Other” choice with text entry is used).
+    - **Display Options:** You can randomize the order of choices to reduce order bias. Each choice can be customized (e.g., rich text, images as choices). In multiple-answer questions, you can designate certain options as **Exclusive** (e.g., “None of the above”) which, when selected, will uncheck all other options. Additionally, for list layout, you can choose vertical or horizontal alignment of choices and even split long lists into multiple columns. The Look & Feel settings of the survey theme control the appearance of radio buttons/checkboxes.
+    - **Logic Support:** Multiple Choice answers can be used in Skip Logic and Display Logic. For example, you can branch based on if a respondent selected a particular option (or combination of options). In multiple-choice (multi-select), Qualtrics allows logic conditions like “If Option X is Selected/Not Selected”. You can also carry forward choices from a previous question (e.g., carry forward only the options a respondent selected earlier).
+3. **Data Export Schema**
+    - **CSV Column Header Format:** If single-answer, the question exports as one column (the header will be the question text or tag). If multiple-answer, the export can be configured in two ways:
+        - *Split columns:* Each answer choice becomes its own column (headers typically append choice text or coded value). For example, `Q1_1`, `Q1_2`, etc., each representing one option.
+        - *Combined column:* All selected choices are listed in one column, separated by commas (this occurs if you export without splitting multi-value fields).
+    - **Data Values:** By default, each choice is assigned a numeric code (1 for the first choice, 2 for the second, etc.). In single-answer questions, the cell value is the code of the selected option. In multi-answer with split columns, a selected option is indicated by a “1” (and unselected by blank or “0”) in that option’s column. If not splitting columns, multiple selections appear as a comma-separated list of choice texts or codes in one cell. (If exporting labels, you’ll see the choice text; if exporting values, you’ll see numeric codes.)
+    - **Recode Values:** The default coding is 1, 2, 3, ... for the listed choices, but these can be manually recoded in Qualtrics (e.g., you could assign particular values for analysis). Any custom recode values will be reflected in the exported data (when exporting “values”). Unselected choices in multi-select questions are blank (or 0 in certain export formats), and exclusive choices (like “None of the above”) when chosen will appear with their code, with others blank.
+

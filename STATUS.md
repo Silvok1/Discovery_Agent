@@ -1,7 +1,7 @@
 # Discovery Agent - Development Status
 
-**Last Updated:** January 25, 2025
-**Last Session Focus:** Updated prompts for internal employee workflow automation focus
+**Last Updated:** January 27, 2026
+**Last Session Focus:** Implementing admin features (mass upload, email distribution, preview, monitoring)
 
 ---
 
@@ -12,16 +12,29 @@
 | Component | Status | Description |
 |-----------|--------|-------------|
 | `backend/main.py` | ✅ Complete | FastAPI app with CORS, health check, API router |
-| `backend/api/routes.py` | ✅ Complete | Full REST API for users, instances, participants, sessions, chat |
+| `backend/api/routes.py` | ✅ Complete | Full REST API for users, projects, instances, participants, sessions, chat |
 | `backend/agents/llm_agent.py` | ✅ Complete | LLM agent with LiteLLM integration + fallback responses |
-| `backend/agents/prompts.py` | ✅ Complete | Three agent prompts (Explorer, Inquisitor, Validator) - updated for internal automation focus |
+| `backend/agents/prompts.py` | ✅ Complete | Three agent prompts (Explorer, Inquisitor, Validator) - internal automation focus |
 | `backend/agents/base_agent.py` | ✅ Complete | Base agent class |
 | `backend/db/database.py` | ✅ Complete | Async SQLite operations (CRUD for all entities) |
 | `backend/db/models.py` | ✅ Complete | Pydantic models for API request/response |
-| `backend/scripts/init_db.py` | ✅ Complete | Database initialization script |
+| `backend/scripts/init_db.py` | ✅ Complete | Database initialization with projects and anonymous_links tables |
 | `backend/requirements.txt` | ✅ Complete | All Python dependencies |
 
-### Frontend (React + Vite + Tailwind)
+### Admin Frontend (Next.js 16 + TypeScript + Tailwind)
+
+| Component | Status | Description |
+|-----------|--------|-------------|
+| Projects Dashboard | ✅ Complete | List, create, edit projects |
+| Instance Builder | ✅ Complete | Tabbed interface for interview configuration |
+| InterviewConfigPanel | ✅ Complete | Agent type, objective, guiding questions, guardrails |
+| ParticipantsPanel | ✅ Complete | Mass upload (CSV), template download, participant list |
+| DistributionsPanel | ✅ Complete | Email templates, scheduling, deadlines |
+| PreviewPanel | ✅ Complete | Test interview experience before going live |
+| MonitorPanel | ✅ Complete | Response tracking, stats, CSV/XLSX export |
+| Instance Live Status | ✅ Complete | Set live with confirmation modal |
+
+### Participant Frontend (React + Vite + Tailwind)
 
 | Component | Status | Description |
 |-----------|--------|-------------|
@@ -33,135 +46,347 @@
 | `frontend/src/components/VoiceButton.jsx` | ✅ Complete | Push-to-talk mic button |
 | `frontend/src/hooks/useVoice.js` | ✅ Complete | Web Speech API hook (speech-to-text, text-to-speech) |
 | `frontend/src/hooks/useChat.js` | ✅ Complete | Chat state management and API calls |
-| `frontend/src/index.css` | ✅ Complete | Tailwind + custom styles |
-| Config files | ✅ Complete | vite.config.js, tailwind.config.js, postcss.config.js |
 
 ### Database
 
 | Table | Status | Description |
 |-------|--------|-------------|
 | users | ✅ Complete | PMs/admins who create interviews |
+| projects | ✅ Complete | Project hierarchy for organizing interviews |
 | instances | ✅ Complete | Interview configurations (agent type, objective, etc.) |
 | participants | ✅ Complete | Employees being interviewed (with unique tokens) |
 | sessions | ✅ Complete | Active interview sessions |
 | messages | ✅ Complete | Conversation history |
-| insights | ✅ Complete | Extracted insights (schema ready, extraction not implemented) |
-
-### API Endpoints
-
-| Endpoint | Method | Status | Description |
-|----------|--------|--------|-------------|
-| `/health` | GET | ✅ | Health check |
-| `/api/users` | POST | ✅ | Create/get user |
-| `/api/instances` | POST | ✅ | Create interview instance |
-| `/api/instances/{id}` | GET | ✅ | Get instance details |
-| `/api/instances/{id}/activate` | POST | ✅ | Activate for interviews |
-| `/api/instances/{id}/participants` | POST | ✅ | Add participant |
-| `/api/interview/{token}` | GET | ✅ | Get interview by token |
-| `/api/interview/{token}/start` | POST | ✅ | Start interview session |
-| `/api/sessions/{id}/chat` | POST | ✅ | Send message, get response |
-| `/api/sessions/{id}/end` | POST | ✅ | End session |
-| `/api/sessions/{id}/messages` | GET | ✅ | Get conversation history |
+| insights | ✅ Complete | Extracted insights (schema ready) |
+| anonymous_links | ✅ Complete | Distribution link settings |
 
 ---
 
-## Issues Experienced
+## Recent Additions (January 27, 2026)
 
-### 1. LangChain Import Error (RESOLVED)
-- **Problem:** `from langchain.memory import ConversationBufferMemory` failed - module restructured in newer versions
-- **Solution:** Removed LangChain memory dependency, simplified to use plain list for conversation history
+### 1. Participant Mass Upload
+- CSV import with field mapping (firstName, lastName, email, background)
+- Downloadable template with example data
+- Preview before import
+- Field validation
 
-### 2. Ollama Not Running (EXPECTED)
-- **Problem:** LLM calls fail with connection refused when Ollama isn't running
-- **Solution:** Implemented fallback response system - agent uses predefined contextual responses when LLM unavailable
-- **Note:** This is expected behavior for development without Ollama
+### 2. Email Distribution System
+- Invitation and reminder email templates
+- Variable placeholders: `{{firstName}}`, `{{lastName}}`, `{{interviewLink}}`, `{{deadline}}`, `{{companyName}}`
+- Email scheduling (send now or schedule for later)
+- Instance deadline setting
+- CC/BCC fields for notifications
 
-### 3. Python Cache Causing Stale Code (RESOLVED)
-- **Problem:** Old error messages appearing despite code changes
-- **Solution:** Cleared `__pycache__` directories and restarted uvicorn
+### 3. Interview Preview
+- Generate preview sessions marked as `preview_test_#`
+- Configuration summary before preview
+- Preview history tracking
+- Opens in new tab
 
----
+### 4. Response Monitoring
+- Real-time stats: Total, Completed, In Progress, Not Started
+- Expandable session details (duration, turn count, timestamps)
+- CSV/XLSX export functionality
+- View transcript link for completed sessions
+- Auto-refresh capability
 
-## Current Barriers/Blockers
+### 5. Guardrails Configuration
+- Positive framing guidance with tips
+- Add/remove guardrails dynamically
+- Passed to agent system prompt
 
-### 1. No LLM Running Locally
-- Ollama is not installed/running on this machine
-- **Impact:** Chat uses fallback responses instead of real LLM
-- **To Fix:** Install Ollama and run `ollama pull llama3.2:latest && ollama serve`
+### 6. Text-to-Speech Toggle
+- Enable/disable reading questions aloud
+- Uses Web Speech API
 
-### 2. No GitHub Remote
-- Repository is local only, not pushed to GitHub
-- **Impact:** Can't work on it in browser or collaborate
-- **To Fix:** Create GitHub repo and push
+### 7. Cross-Interview Learning (Experimental)
+- Toggle for RAG-based pattern learning
+- Requires vector database setup
+- Identifies themes across completed interviews
 
-### 3. No Email Integration
-- SendGrid not configured
-- **Impact:** Can't send interview invitation emails
-- **To Fix:** Add SendGrid API key to `.env`
+### 8. Save to Library
+- Save interview configurations for reuse
+- Named configurations
 
----
-
-## To-Do List
-
-### High Priority
-- [ ] Push to GitHub remote
-- [ ] Install and configure Ollama for local LLM
-- [ ] Test full interview flow end-to-end with real LLM
-
-### Medium Priority
-- [ ] Implement insight extraction from conversations
-- [ ] Add interview summary/report generation
-- [ ] Add admin dashboard to view all interviews and insights
-- [ ] Email integration for sending interview links
-- [ ] Add authentication/login for PMs
-
-### Low Priority / Nice to Have
-- [ ] Export conversation transcripts (JSON, CSV)
-- [ ] Analytics dashboard (completion rates, avg duration, etc.)
-- [ ] Multiple language support
-- [ ] Custom question templates per agent type
-- [ ] Integration with Slack for notifications
-- [ ] AWS Bedrock configuration for production LLM
-
-### Frontend Polish
-- [ ] Loading states and error handling improvements
-- [ ] Mobile responsive design testing
-- [ ] Accessibility audit (ARIA labels, keyboard nav)
-- [ ] Dark mode support
+### 9. Instance Live Status
+- Confirmation modal before going live
+- Triggers scheduled email distribution
+- Enables monitoring tab
 
 ---
 
-## Last Session Summary
+## Pending Features
 
-### What We Were Working On
-Updated the agent prompts and fallback responses to focus on **internal employee workflow automation** rather than external customer discovery.
+### User Management (Settings) - HIGH PRIORITY
+- [ ] Admin can create user accounts
+- [ ] Role-based access levels:
+  - **Admin**: Full access, user management, all projects
+  - **Editor**: Create/edit projects and instances, no user management
+  - **Viewer**: Read-only access to assigned projects
+- [ ] Project-level permissions assignment
+- [ ] Audit logging for compliance
 
-### Key Changes Made
-1. **Prompts (`backend/agents/prompts.py`)** - Rewritten for internal context:
-   - Explorer: Focuses on uncovering repetitive tasks, manual processes, copy-paste work
-   - Inquisitor: Validates whether proposed automation would actually save time
-   - Validator: Walks through how automation would fit into real workflows
+---
 
-2. **Fallback Responses (`backend/agents/llm_agent.py`)** - Updated to ask about:
-   - Time spent on tasks
-   - Tools/systems being used
-   - Manual data entry and handoffs
-   - Workarounds employees have found
+## Future Features
 
-3. **Opening Messages** - Changed tone to colleague-to-colleague, casual, focused on finding automation opportunities
+### Model Selection (OLLAMA Integration)
 
-4. **CLAUDE.md** - Updated project context to reflect internal employee focus
+**Status:** Planned for future release
+**Priority:** Medium
 
-### Last Commands Run
-```bash
-# Committed all changes
-git add -A
-git commit -m "Full implementation of internal workflow discovery platform..."
+**Description:**
+Allow admins to select which LLM model to use for interviews at the instance level. This enables:
+- Testing different models for specific use cases
+- Cost optimization by using smaller models for simpler interviews
+- Performance tuning based on interview complexity
+
+**Proposed Implementation:**
+
+#### Backend Changes
+
+1. **Database Schema** (`backend/scripts/init_db.py`)
+```sql
+-- Add model_id column to instances table
+ALTER TABLE instances ADD COLUMN model_id TEXT DEFAULT 'default';
+
+-- Models configuration table (optional, for custom models)
+CREATE TABLE IF NOT EXISTS models (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    provider TEXT NOT NULL, -- 'ollama', 'bedrock', 'openai', etc.
+    model_name TEXT NOT NULL, -- actual model identifier
+    description TEXT,
+    max_tokens INTEGER DEFAULT 4096,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 ```
 
-### Servers Status (at end of session)
-- Backend: Running on `http://localhost:8000` (uvicorn with --reload)
-- Frontend: Running on `http://localhost:5173` (Vite dev server)
+2. **Available Models Endpoint** (`backend/api/routes.py`)
+```python
+@router.get("/api/models")
+async def list_models():
+    """List available LLM models"""
+    # Query Ollama for installed models
+    # Combine with configured Bedrock/OpenAI models
+    return {
+        "models": [
+            {
+                "id": "ollama/llama3.2",
+                "name": "Llama 3.2",
+                "provider": "ollama",
+                "description": "Local, fast, good for general interviews",
+                "status": "available"
+            },
+            {
+                "id": "ollama/mistral",
+                "name": "Mistral 7B",
+                "provider": "ollama",
+                "description": "Excellent reasoning, longer context",
+                "status": "available"
+            },
+            {
+                "id": "bedrock/anthropic.claude-v2",
+                "name": "Claude 2 (Bedrock)",
+                "provider": "bedrock",
+                "description": "Production-grade, nuanced conversations",
+                "status": "configured"
+            }
+        ]
+    }
+```
+
+3. **Ollama Model Discovery**
+```python
+import httpx
+
+async def get_ollama_models():
+    """Fetch installed models from Ollama"""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{OLLAMA_BASE_URL}/api/tags")
+            if response.status_code == 200:
+                data = response.json()
+                return [
+                    {
+                        "id": f"ollama/{m['name']}",
+                        "name": m['name'],
+                        "provider": "ollama",
+                        "size": m.get('size', 'unknown'),
+                        "status": "available"
+                    }
+                    for m in data.get('models', [])
+                ]
+    except Exception:
+        return []
+    return []
+```
+
+4. **Update Instance Creation** (`backend/db/models.py`)
+```python
+class InstanceCreate(BaseModel):
+    name: str
+    project_id: int
+    agent_type: str = "explorer"
+    model_id: str = "default"  # New field
+    objective: str = ""
+    guiding_questions: List[str] = []
+    guardrails: List[str] = []
+    timebox_minutes: int = 30
+    max_turns: int = 20
+```
+
+5. **Agent Initialization** (`backend/agents/llm_agent.py`)
+```python
+def get_llm_for_instance(instance):
+    """Get LLM instance based on model_id"""
+    model_id = instance.model_id or "default"
+
+    if model_id == "default":
+        model_id = os.getenv("LLM_MODEL", "ollama/llama3.2")
+
+    return LiteLLM(model=model_id)
+```
+
+#### Frontend Changes
+
+1. **Model Selector Component** (`frontend-admin/src/components/features/interview-builder/ModelSelector.tsx`)
+```typescript
+interface Model {
+  id: string;
+  name: string;
+  provider: string;
+  description: string;
+  status: 'available' | 'configured' | 'unavailable';
+}
+
+export function ModelSelector({ value, onChange }: Props) {
+  const [models, setModels] = useState<Model[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchModels() {
+      const response = await fetch('/api/models');
+      const data = await response.json();
+      setModels(data.models);
+      setIsLoading(false);
+    }
+    fetchModels();
+  }, []);
+
+  return (
+    <div className="space-y-2">
+      <label className="block text-sm font-medium">AI Model</label>
+      <select
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className="w-full rounded-lg border p-2"
+      >
+        <option value="default">Default (Environment Config)</option>
+        {models.map(m => (
+          <option
+            key={m.id}
+            value={m.id}
+            disabled={m.status === 'unavailable'}
+          >
+            {m.name} ({m.provider}) {m.status !== 'available' && `- ${m.status}`}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+```
+
+2. **Integration in InterviewConfigPanel**
+- New section: "AI Model" between Agent Type and Objective
+- Show model capabilities (context window, speed rating)
+- Warning banner for cloud models (cost implications)
+- Real-time availability indicator
+
+#### Environment Variables
+```bash
+# Default model when instance doesn't specify
+LLM_MODEL=ollama/llama3.2
+
+# Ollama server URL
+OLLAMA_BASE_URL=http://localhost:11434
+
+# Enable model selection UI (feature flag)
+ENABLE_MODEL_SELECTION=false
+
+# Available cloud models (comma-separated)
+CLOUD_MODELS=bedrock/anthropic.claude-v2,openai/gpt-4
+```
+
+#### Testing Considerations
+- [ ] Test model switching mid-session (should continue with original model)
+- [ ] Validate model availability before setting instance live
+- [ ] Fallback behavior when selected model unavailable
+- [ ] Token limits per model
+- [ ] Response time benchmarking
+
+#### UI/UX Notes
+- Show model status (green dot = available, yellow = configured, red = unavailable)
+- Display approximate response times per model
+- Show cost indicator ($ to $$$) for cloud models
+- Model info tooltip with context window and capabilities
+- "Test Model" button to verify connectivity
+
+#### Alternative Models to Consider
+- DeepSeek-R1-0528-Qwen3-8B (GGUF available locally)
+- Mistral 7B
+- Phi-3
+- Gemma 2
+
+---
+
+## Technical Debt
+
+- [ ] Replace mock data in MonitorPanel with real API calls
+- [ ] Implement actual XLSX export (requires xlsx library)
+- [ ] Add proper error handling for email sending failures
+- [ ] Implement email library persistence (save/load templates)
+- [ ] Add pagination to participants list (performance)
+- [ ] Optimize session data loading for large instances
+- [ ] Add WebSocket for real-time monitoring updates
+- [ ] Implement actual preview session API endpoint
+- [ ] Connect guardrails to agent system prompt
+
+---
+
+## Issues Resolved
+
+### 1. LangChain Import Error
+- **Problem:** `from langchain.memory import ConversationBufferMemory` failed
+- **Solution:** Removed dependency, use plain list for conversation history
+
+### 2. Ollama Not Running
+- **Problem:** LLM calls fail when Ollama isn't running
+- **Solution:** Fallback response system with contextual responses
+
+### 3. Python Cache Issues
+- **Problem:** Stale code after changes
+- **Solution:** Clear `__pycache__` and restart uvicorn
+
+### 4. Accessibility Errors
+- **Problem:** Missing aria-labels on toggle buttons
+- **Solution:** Added aria-label, role="switch", aria-checked attributes
+
+---
+
+## Current Barriers
+
+### 1. No Email Integration (DEFERRED)
+- SendGrid not configured
+- **Impact:** Can't send interview invitation emails
+- **Status:** User working on this separately
+
+### 2. No Vector Database for RAG
+- Cross-interview learning requires vector storage
+- **Options:** Pinecone, Weaviate, ChromaDB, or pgvector
+- **Status:** Awaiting requirements decision
 
 ---
 
@@ -172,7 +397,11 @@ git commit -m "Full implementation of internal workflow discovery platform..."
 cd C:/Users/Fresc/Discovery_Agent
 .venv/Scripts/uvicorn backend.main:app --reload --port 8000
 
-# Start frontend (separate terminal)
+# Start admin frontend (separate terminal)
+cd C:/Users/Fresc/Discovery_Agent/frontend-admin
+npm run dev
+
+# Start participant frontend (separate terminal)
 cd C:/Users/Fresc/Discovery_Agent/frontend
 npm run dev
 
@@ -181,46 +410,72 @@ curl http://localhost:8000/health
 
 # Initialize fresh database
 .venv/Scripts/python backend/scripts/init_db.py
+
+# Start Ollama (if using local LLM)
+ollama serve
 ```
 
 ---
 
+## Servers
+
+| Service | URL | Notes |
+|---------|-----|-------|
+| Backend API | http://localhost:8000 | FastAPI with Swagger at /docs |
+| Admin Frontend | http://localhost:3000 | Next.js 16 |
+| Participant Frontend | http://localhost:5173 | Vite + React |
+| Ollama | http://localhost:11434 | Local LLM server |
+
+---
+
 ## File Structure
+
 ```
 Discovery_Agent/
 ├── .claude/                    # Claude Code settings
 ├── backend/
 │   ├── agents/
-│   │   ├── __init__.py
 │   │   ├── base_agent.py
 │   │   ├── llm_agent.py       # Main agent with LLM + fallbacks
 │   │   └── prompts.py         # Agent system prompts
 │   ├── api/
-│   │   ├── __init__.py
 │   │   └── routes.py          # All API endpoints
 │   ├── db/
-│   │   ├── __init__.py
 │   │   ├── database.py        # SQLite operations
 │   │   └── models.py          # Pydantic models
 │   ├── scripts/
 │   │   └── init_db.py         # DB initialization
-│   ├── .env.example
 │   ├── main.py                # FastAPI app
 │   └── requirements.txt
-├── frontend/
+├── frontend/                   # Participant interview UI
 │   ├── src/
 │   │   ├── components/        # React components
-│   │   ├── hooks/             # Custom hooks (voice, chat)
-│   │   ├── App.jsx
-│   │   ├── index.css
-│   │   └── main.jsx
-│   ├── index.html
-│   ├── package.json
-│   ├── vite.config.js
-│   ├── tailwind.config.js
-│   └── postcss.config.js
+│   │   └── hooks/             # Custom hooks (voice, chat)
+│   └── package.json
+├── frontend-admin/             # Admin dashboard (NEW)
+│   ├── src/
+│   │   ├── api/
+│   │   │   ├── contracts.ts   # TypeScript types
+│   │   │   └── services/      # API service functions
+│   │   ├── app/               # Next.js app router pages
+│   │   └── components/
+│   │       ├── features/
+│   │       │   └── interview-builder/
+│   │       │       ├── InterviewConfigPanel.tsx
+│   │       │       ├── ParticipantsPanel.tsx
+│   │       │       ├── DistributionsPanel.tsx
+│   │       │       ├── PreviewPanel.tsx
+│   │       │       └── MonitorPanel.tsx
+│   │       └── layout/
+│   └── package.json
 ├── interviews.db              # SQLite database
-├── CLAUDE.md                  # Project context for Claude
-├── STATUS.md                  # This file
-└── Continuous_Discovery_Platform_PRD_v3 (1).md  # Original PRD
+├── CLAUDE.md                  # Project context
+└── status.md                  # This file
 ```
+
+---
+
+## GitHub Repository
+
+**URL:** https://github.com/Silvok1/Discovery_Agent.git
+**Branch:** main

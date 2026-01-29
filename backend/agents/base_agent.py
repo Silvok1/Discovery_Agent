@@ -1,13 +1,13 @@
 """Base agent class for interview agents."""
 from typing import Optional
-from .prompts import EXPLORER_PROMPT, INQUISITOR_PROMPT, VALIDATOR_PROMPT
+from .prompts import EXPLORER_PROMPT
 
 
 class BaseAgent:
     """Base class for interview agents."""
 
     def __init__(self, agent_type: str, context: dict):
-        self.agent_type = agent_type
+        self.agent_type = "explorer"  # Always explorer now
         self.context = context
         self.conversation_history = []
         self.system_prompt = self._get_system_prompt()
@@ -15,13 +15,8 @@ class BaseAgent:
         self.max_turns = context.get("max_turns", 20)
 
     def _get_system_prompt(self) -> str:
-        prompts = {
-            "explorer": EXPLORER_PROMPT,
-            "inquisitor": INQUISITOR_PROMPT,
-            "validator": VALIDATOR_PROMPT,
-        }
-        template = prompts.get(self.agent_type, EXPLORER_PROMPT)
-        return template.format(**self.context)
+        # Only explorer is supported
+        return EXPLORER_PROMPT.format(**self.context)
 
     def chat(self, user_message: str) -> str:
         if not self._check_guardrails(user_message):

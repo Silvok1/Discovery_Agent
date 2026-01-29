@@ -10,7 +10,6 @@ export function SetupPage({ onStartInterview }) {
   // Form state
   const [userEmail, setUserEmail] = useState('');
   const [instanceName, setInstanceName] = useState('');
-  const [agentType, setAgentType] = useState('explorer');
   const [objective, setObjective] = useState('');
 
   const [participantEmail, setParticipantEmail] = useState('');
@@ -33,13 +32,13 @@ export function SetupPage({ onStartInterview }) {
         body: JSON.stringify({ email: userEmail }),
       });
 
-      // Create instance
+      // Create instance (always explorer)
       const instanceRes = await fetch(`${API_BASE}/instances?user_email=${encodeURIComponent(userEmail)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: instanceName,
-          agent_type: agentType,
+          agent_type: 'explorer',
           objective: objective,
         }),
       });
@@ -90,21 +89,15 @@ export function SetupPage({ onStartInterview }) {
     }
   };
 
-  const agentDescriptions = {
-    explorer: "Open-ended discovery to identify opportunities and pain points",
-    inquisitor: "Hypothesis testing to validate assumptions about user behavior",
-    validator: "Solution testing through task-based scenario walkthroughs",
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4">
       <div className="max-w-2xl mx-auto">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-800 mb-2">
-            Discovery Interview Platform
+            Process Discovery Platform
           </h1>
           <p className="text-gray-600">
-            AI-powered interviews for continuous product discovery
+            Conduct structured interviews to understand workflows and identify automation opportunities
           </p>
         </div>
 
@@ -116,7 +109,7 @@ export function SetupPage({ onStartInterview }) {
 
         {step === 'create' && (
           <form onSubmit={handleCreateInstance} className="bg-white rounded-xl shadow-lg p-8">
-            <h2 className="text-xl font-semibold mb-6">Create Interview Instance</h2>
+            <h2 className="text-xl font-semibold mb-6">Start Discovery Interview</h2>
 
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -142,37 +135,24 @@ export function SetupPage({ onStartInterview }) {
                 onChange={(e) => setInstanceName(e.target.value)}
                 required
                 className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Q1 Onboarding Discovery"
+                placeholder="e.g., Invoice Processing Discovery"
               />
-            </div>
-
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Agent Type
-              </label>
-              <select
-                value={agentType}
-                onChange={(e) => setAgentType(e.target.value)}
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="explorer">The Explorer (Generative)</option>
-                <option value="inquisitor">The Inquisitor (Assumption Testing)</option>
-                <option value="validator">The Validator (Solution Testing)</option>
-              </select>
-              <p className="text-sm text-gray-500 mt-1">{agentDescriptions[agentType]}</p>
             </div>
 
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Research Objective
+                What process are we exploring?
               </label>
               <textarea
                 value={objective}
                 onChange={(e) => setObjective(e.target.value)}
                 rows={3}
                 className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Understand pain points in the user onboarding flow..."
+                placeholder="e.g., How the team handles monthly expense reports, including approval workflows and data entry..."
               />
+              <p className="text-sm text-gray-500 mt-1">
+                Describe the workflow or process area you want to understand better
+              </p>
             </div>
 
             <button
@@ -199,7 +179,7 @@ export function SetupPage({ onStartInterview }) {
                 onChange={(e) => setParticipantEmail(e.target.value)}
                 required
                 className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="participant@example.com"
+                placeholder="colleague@company.com"
               />
             </div>
 
@@ -218,15 +198,18 @@ export function SetupPage({ onStartInterview }) {
 
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Background Info (Optional)
+                Role/Team (Optional)
               </label>
               <textarea
                 value={participantBackground}
                 onChange={(e) => setParticipantBackground(e.target.value)}
-                rows={3}
+                rows={2}
                 className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Power user, 2 years with product, enterprise segment..."
+                placeholder="e.g., Finance team, handles AP/AR, 3 years in role..."
               />
+              <p className="text-sm text-gray-500 mt-1">
+                This helps the interviewer ask better questions
+              </p>
             </div>
 
             <button

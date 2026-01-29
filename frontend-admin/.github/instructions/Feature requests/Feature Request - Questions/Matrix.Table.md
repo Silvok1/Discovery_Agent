@@ -1,0 +1,43 @@
+# Matrix Table Question
+
+1. **Structure**
+    - **Visual Elements:** A table with rows and columns. Rows (often called **Statements**) are the items or questions being rated, and columns (often called **Scale Points** or choices) are the response options for each item. This allows a grid of questions to share the same answer scale.
+    - **Variations:** The Matrix table has multiple formats, selectable via the “Matrix Type” setting:
+        - *Likert Scale:* A standard rating scale (e.g., 1–5 from “Strongly Disagree” to “Strongly Agree”). Can be **Single Answer** (one choice per row) or **Multiple Answer** (allowing multiple selections per row). It can also be displayed as a dropdown per row or as drag-and-drop scale in some cases.
+        - *Bipolar:* A matrix with two opposite endpoints (e.g., “Too Low” vs “Too High”) on the scale. Respondents select a point between the two labeled extremes for each statement.
+        - *Rank Order:* Each row is ranked by typing a numeric rank. For example, respondents assign a rank number to each item (with all ranks in a row set required to be unique).
+        - *Constant Sum:* Each row has an input (text box) for a numeric value, and respondents allocate points or amounts to each item (often with a required total sum across the row or entire question).
+        - *Text Entry:* Each cell is an open text box (short, medium, or long text entry for each row/column intersection). This effectively creates a form-like table for text responses.
+        - *Profile:* A variation where each row can have a different set of scale labels (each scale point can be uniquely labeled per row). This is useful if each statement has a custom scale.
+        - *MaxDiff:* A specialized format where sets of items are presented and in each row the respondent indicates, for example, the “Most” and “Least” preferred options. (Qualtrics uses a matrix-style layout to collect MaxDiff data, although analysis of MaxDiff is specialized.)
+    - **Note:** Each Matrix variation may enable different editing options. For instance, a Likert matrix allows setting scale labels, whereas a Constant Sum matrix allows setting a total.
+2. **Settings & Features**
+    - **Validation:** Matrix questions support Force Response/Request Response like other questions (ensuring a response in each row if required). Additionally, Custom Validation can apply (e.g., for Constant Sum you might require the sum of a row or of the entire matrix to equal a target value). Some matrix types have built-in checks (e.g., Rank Order matrices ensure no duplicate ranks if set up accordingly, Constant Sum can have an auto-sum display but must be manually validated via custom settings to enforce totals).
+    - **Display Options:** 
+        - *Transpose Table:* Swap rows and columns (statements become columns and scale points become rows) if it makes the display more compact or clear. 
+        - *Position Text Above:* For tighter spacing, row statements can be placed above the scale dropdowns or sliders (instead of the left side).
+        - *Repeat Headers:* If there are many rows, you can repeat the column headers periodically (every N rows, or at the bottom) to remind respondents of the scale. 
+        - *Add Whitespace:* Inserts extra spacing between certain rows to visually group items or avoid a crowded appearance in long lists.
+        - *Mobile Friendly:* When enabled, large matrices are transformed on mobile devices into an accordion or vertical format (each row becomes an individual question on mobile). Note that some complex matrix types (like those with many columns or certain variations) may not be fully supported in the mobile optimized view.
+        - *Choice Randomization:* You can randomize the order of statements (rows) and/or the order of scale points (columns) if needed (though column randomization is less common except in specific research designs).
+        - *Statement Groups:* You can categorize rows into sub-groups with a header label, to organize long matrices by section (this is mostly a formatting aid).
+    - **Logic Support:** Matrix Table responses can be used in Skip Logic and Branch Logic. Each row in a single-answer matrix is essentially like a separate variable in the data, so you can set logic such as “If [Matrix Question] – [Statement X] is equal to [Scale Y]… then…” etc. For multiple-answer matrices, logic can check if a specific option in a specific row was selected. Display Logic can also target individual rows (showing or hiding a particular statement based on prior answers) – though such usage typically requires setting the row as a separate question or using custom scripting. In general, matrices condense data entry, but the trade-off is that using or piping individual cell responses may need careful setup.
+3. **Data Export Schema**
+    - **CSV Column Header Format:** In a single-answer Likert matrix, each row becomes a separate column in the dataset. The default header will include the question text and the statement text (e.g., “Satisfaction – Product Quality” if “Product Quality” is a statement). For multiple-answer matrices that are not split into multiple columns, each row is one column with comma-separated values. If you choose to split multi-value fields on export, then each combination of row & scale choice becomes its own column (headers might show question, statement, and choice). Other variations:
+        - *Text Entry Matrix:* Each text box cell is a data column. Columns are named by question ID and the row/column position (e.g., `Q5_1_2` could mean Question 5, Row 1, Column 2 text box). 
+        - *Constant Sum Matrix:* Each numeric input cell is a column. If there is one column of inputs, it will be one column per row (e.g., `Q10_Row3` for third row’s number). If multiple constant sum inputs per row, naming will include row and column indices similar to text entry.
+        - *MaxDiff Matrix:* The data can be exported in a special format. Typically, for each item (statement) there may be multiple columns indicating whether that item was chosen as “Most” or “Least” in each set. In a straightforward MaxDiff export, you might see one column per item per MaxDiff task or a summarized value code for each item. (Exact structure depends on the MaxDiff analysis chosen.)
+    - **Data Values:** 
+        - For Likert scales, the cell value is the recode number of the selected scale point by default (or the text label if exporting labels). For example, if a respondent chose “Agree” which is coded as 4, the dataset shows “4” under that statement’s column (or “Agree” if labels).
+        - In Multi-Answer matrices (checkboxes in a row), if not splitting into separate columns, all selected options for that row will appear in one cell separated by commas. If splitting, each possible option turns into a binary indicator column (1 = selected, blank/0 = not selected).
+        - For Text Entry matrix cells, the data is the text the respondent entered (as a string). For Constant Sum, the data is the number the respondent typed for that cell. For Rank Order matrix variation, the data in each relevant cell is the rank number assigned by the respondent.
+        - Bipolar matrix data will be the numeric position selected (e.g., if there are 7 radio positions from one extreme to the other, those might be coded 1–7).
+        - Profile matrices (custom scale per row) will still output the chosen label or its recode number for each row’s column.
+    - **Recode Values:** Each column in a matrix follows the recode scheme of that sub-question:
+        - For standard Likert, the scale points have recode values (usually 1 through N by default, which you can adjust in the Recode Values setting if needed). Those recodes are what appear in numeric exports.
+        - In a multi-answer matrix, the underlying coding for each option is 1/0 per option when split (with the option to change those recodes if you edit the choices’ values).
+        - Text and numeric inputs don’t use recode values (they output the literal response).
+        - Constant Sum recodes aren’t applicable (the numbers entered are taken as-is; if you recoded the statements for some reason, that wouldn’t change the entered values).
+        - MaxDiff data uses a specific coding (often 1 for “Most Preferred”, -1 for “Least Preferred”, and 0 for unselected in each set when exported in numeric form). Labels export might show words like “Most”/“Least”.
+        - **Note:** By default, Qualtrics will number matrix statements and scale points automatically; if you alter recode values for scale points (or use legacy labeling like 0 to 10 for NPS scales within a matrix), those will reflect in the exported values.
+

@@ -13,19 +13,47 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Interview Instances
+-- Projects (container for interview instances)
+CREATE TABLE IF NOT EXISTS projects (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT,
+    status TEXT CHECK(status IN ('draft', 'active', 'closed', 'archived')) DEFAULT 'draft',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+-- Interview Instances (belong to a project)
 CREATE TABLE IF NOT EXISTS instances (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER,
     user_id INTEGER,
     name TEXT NOT NULL,
-    agent_type TEXT CHECK(agent_type IN ('explorer', 'inquisitor', 'validator')),
+    agent_type TEXT CHECK(agent_type IN ('explorer')) DEFAULT 'explorer',
     objective TEXT,
     questions JSON,
     timebox_minutes INTEGER DEFAULT 30,
     max_turns INTEGER DEFAULT 20,
     status TEXT CHECK(status IN ('draft', 'active', 'closed')),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (project_id) REFERENCES projects(id),
     FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+-- Anonymous link settings per instance
+CREATE TABLE IF NOT EXISTS anonymous_links (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    instance_id INTEGER UNIQUE NOT NULL,
+    enabled INTEGER DEFAULT 1,
+    url TEXT NOT NULL,
+    allow_multiple INTEGER DEFAULT 0,
+    max_responses INTEGER,
+    current_responses INTEGER DEFAULT 0,
+    expires_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (instance_id) REFERENCES instances(id)
 );
 
 -- Participants

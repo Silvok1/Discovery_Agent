@@ -1,7 +1,18 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm run dev)"
+      "Bash(npm run dev)",
+      "Bash(powershell.exe -Command \"ollama list\")",
+      "Bash(git branch:*)",
+      "Bash(powershell.exe:*)",
+      "Bash(curl:*)",
+      "Bash(.venv/Scripts/python.exe:*)",
+      "Bash(.venv/Scripts/uvicorn.exe:*)",
+      "Bash(npm install)",
+      "Bash(npm run build:*)",
+      "Bash(python:*)",
+      "Bash(pip install:*)",
+      "Bash(git add:*)"
     ]
   }
 }

@@ -41,9 +41,10 @@ def health_check():
 def root():
     """Root endpoint with API info."""
     return {
-        "message": "Continuous Discovery Interview Platform",
+        "message": "Internal Process Discovery Platform",
+        "description": "AI-powered interviews to understand workflows and identify automation opportunities",
         "docs": "/docs",
-        "agents": ["explorer", "inquisitor", "validator"],
+        "agents": ["explorer"],
         "endpoints": {
             "create_user": "POST /api/users",
             "create_instance": "POST /api/instances?user_email=...",

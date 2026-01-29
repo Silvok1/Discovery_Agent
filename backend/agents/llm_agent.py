@@ -2,40 +2,25 @@
 import os
 import random
 from typing import Optional
-from .prompts import EXPLORER_PROMPT, INQUISITOR_PROMPT, VALIDATOR_PROMPT
+from .prompts import EXPLORER_PROMPT
 
 
 class LLMAgent:
     """Agent that uses LiteLLM for conversation."""
 
     # Fallback responses for internal workflow discovery
-    FALLBACK_RESPONSES = {
-        "explorer": [
-            "Walk me through the last time you did that, step by step.",
-            "How much time does that usually take you? How often do you do it?",
-            "What tools or systems are you jumping between for that?",
-            "Is there any copy-paste or manual data entry involved?",
-            "What's the most tedious part of that process?",
-            "Have you found any workarounds to make it faster?",
-            "Who else touches this process? Any handoffs or waiting?",
-        ],
-        "inquisitor": [
-            "When was the last time you had to do this manually? Walk me through it.",
-            "How often does this come up in a typical week?",
-            "What's the most annoying part - the time, the repetition, or something else?",
-            "Have you tried any tools or shortcuts to speed this up?",
-            "Are there edge cases where you have to do it differently?",
-            "On a scale of 1-10, how much does this slow you down?",
-        ],
-        "validator": [
-            "If this automation existed, how would you kick it off?",
-            "What info would you need to give it to get started?",
-            "What would you do with the output once it's done?",
-            "Would this fit into how you work now, or would you need to change things?",
-            "What would you still need to handle manually?",
-            "Does this match how you pictured it working?",
-        ],
-    }
+    FALLBACK_RESPONSES = [
+        "Walk me through the last time you did that, step by step.",
+        "How much time does that usually take you? How often do you do it?",
+        "What tools or systems are you jumping between for that?",
+        "Is there any copy-paste or manual data entry involved?",
+        "What's the most tedious part of that process?",
+        "Have you found any workarounds to make it faster?",
+        "Who else touches this process? Any handoffs or waiting?",
+        "What triggers this task? An email, a ticket, a deadline?",
+        "When was the last time something went wrong with this process?",
+        "What do you do when that happens?",
+    ]
 
     def __init__(
         self,
@@ -44,7 +29,7 @@ class LLMAgent:
         model: Optional[str] = None,
         api_base: Optional[str] = None
     ):
-        self.agent_type = agent_type
+        self.agent_type = "explorer"  # Always explorer now
         self.context = context
         self.conversation_history = []
         self.turn_count = 0
@@ -62,26 +47,16 @@ class LLMAgent:
         self._llm_available = None
 
     def _build_system_prompt(self) -> str:
-        """Get the appropriate system prompt for the agent type."""
-        prompts = {
-            "explorer": EXPLORER_PROMPT,
-            "inquisitor": INQUISITOR_PROMPT,
-            "validator": VALIDATOR_PROMPT,
-        }
-
-        template = prompts.get(self.agent_type, EXPLORER_PROMPT)
-
+        """Build the system prompt with context variables."""
         # Fill in context variables with defaults for missing keys
         context_with_defaults = {
+            "participant_name": self.context.get("participant_name", "Participant"),
             "participant_background": self.context.get("participant_background", "Not provided"),
-            "objective": self.context.get("objective", "General discovery"),
-            "questions": self.context.get("questions", "Open exploration"),
-            "assumption": self.context.get("assumption", ""),
-            "solution_description": self.context.get("solution_description", ""),
-            "past_pain_point": self.context.get("past_pain_point", ""),
+            "objective": self.context.get("objective", "General process discovery"),
+            "timebox_minutes": self.context.get("timebox_minutes", 10),
         }
 
-        return template.format(**context_with_defaults)
+        return EXPLORER_PROMPT.format(**context_with_defaults)
 
     def _check_guardrails(self, message: str) -> tuple[bool, Optional[str]]:
         """Check if the message passes guardrails."""
@@ -98,23 +73,17 @@ class LLMAgent:
 
     def get_opening_message(self) -> str:
         """Generate an opening message for the conversation."""
-        openings = {
-            "explorer": f"Hey! Thanks for chatting with me. I'm trying to understand how your team handles {self.context.get('objective', 'your daily workflows')} so we can find automation opportunities. To kick things off - what's a task you do regularly that feels repetitive or takes longer than it should?",
-            "inquisitor": f"Hi! I'm looking into whether we could automate {self.context.get('assumption', 'some of your workflow')}. Before we go too far down that path, I want to make sure it's actually a pain point. When was the last time you had to deal with this?",
-            "validator": f"Hey! We're thinking about building an automation for {self.context.get('past_pain_point', 'that workflow you mentioned')}. I want to walk through how it would actually work for you. Can you pick a recent example where you had to do this manually?",
-        }
-        return openings.get(self.agent_type, openings["explorer"])
+        objective = self.context.get('objective', 'your daily workflows')
+        return f"Hey! Thanks for chatting with me. I'm trying to understand how your team handles {objective} so we can find opportunities to make things easier. To kick things off - what's a task you do regularly that feels repetitive or takes longer than it should?"
 
     def _get_fallback_response(self, user_message: str) -> str:
         """Get a contextual fallback response when LLM is unavailable."""
-        responses = self.FALLBACK_RESPONSES.get(self.agent_type, self.FALLBACK_RESPONSES["explorer"])
-
         # Try to pick a response that hasn't been used recently
         used = [msg["content"] for msg in self.conversation_history if msg["role"] == "assistant"]
-        available = [r for r in responses if r not in used]
+        available = [r for r in self.FALLBACK_RESPONSES if r not in used]
 
         if not available:
-            available = responses
+            available = self.FALLBACK_RESPONSES
 
         return random.choice(available)
 
